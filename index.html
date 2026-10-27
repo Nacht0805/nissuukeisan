@@ -2,6 +2,7 @@
 <html lang="ja">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%3Crect%20x=%226%22%20y=%2210%22%20width=%2252%22%20height=%2248%22%20rx=%228%22%20fill=%22%23ffffff%22%20stroke=%22%231c63c9%22%20stroke-width=%224%22/%3E%3Cpath%20d=%22M6%2018a8%208%200%200%201%208-8h36a8%208%200%200%201%208%208v10H6z%22%20fill=%22%231c63c9%22/%3E%3Crect%20x=%2218%22%20y=%224%22%20width=%226%22%20height=%2214%22%20rx=%223%22%20fill=%22%231b2330%22/%3E%3Crect%20x=%2240%22%20y=%224%22%20width=%226%22%20height=%2214%22%20rx=%223%22%20fill=%22%231b2330%22/%3E%3Cg%20fill=%22%231b2330%22%3E%3Crect%20x=%2214%22%20y=%2234%22%20width=%228%22%20height=%227%22%20rx=%222%22/%3E%3Crect%20x=%2228%22%20y=%2234%22%20width=%228%22%20height=%227%22%20rx=%222%22/%3E%3Crect%20x=%2242%22%20y=%2234%22%20width=%228%22%20height=%227%22%20rx=%222%22%20fill=%22%23b0481f%22/%3E%3Crect%20x=%2214%22%20y=%2246%22%20width=%228%22%20height=%227%22%20rx=%222%22/%3E%3Crect%20x=%2228%22%20y=%2246%22%20width=%228%22%20height=%227%22%20rx=%222%22/%3E%3C/g%3E%3C/svg%3E">
 <title>何日前・何日後</title>
 <style>
   /* Layout: 1 column, narrow. Base date -> target date -> big result -> details list. */
@@ -60,6 +61,34 @@
     padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
   main { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  main > * { min-width: 0; }
+
+  /* Desktop: inputs on the left, result and details on the right. */
+  @media (min-width: 880px) {
+    body { padding-block: 48px 64px; }
+    main {
+      max-width: 1040px;
+      display: grid;
+      grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+      grid-template-areas: "head head" "form result" "form detail";
+      grid-template-rows: auto auto 1fr;
+      column-gap: 40px;
+      row-gap: 24px;
+    }
+    main > header { grid-area: head; }
+    main > header h1 { font-size: 2.25rem; }
+    main > header .lead { font-size: 1rem; }
+    #form { grid-area: form; align-self: start; position: sticky; top: 24px; }
+    #result { grid-area: result; padding: 32px 32px 28px; }
+    #details { grid-area: detail; align-self: start; }
+    .big-num { font-size: clamp(4rem, 7vw, 6rem); }
+    .big-unit { font-size: 1.875rem; }
+    .sentence { font-size: 1.0625rem; }
+    dt, dd { padding: 14px 20px; }
+    dt { width: 9rem; }
+    .panel { padding: 20px; }
+    .field input { font-size: 1.5rem; padding: 10px 6px; }
+  }
 
   h1 {
     font-family: var(--font-display);
