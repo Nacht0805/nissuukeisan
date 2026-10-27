@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%3Crect%20x=%226%22%20y=%2210%22%20width=%2252%22%20height=%2248%22%20rx=%228%22%20fill=%22%23ffffff%22%20stroke=%22%231c63c9%22%20stroke-width=%224%22/%3E%3Cpath%20d=%22M6%2018a8%208%200%200%201%208-8h36a8%208%200%200%201%208%208v10H6z%22%20fill=%22%231c63c9%22/%3E%3Crect%20x=%2218%22%20y=%224%22%20width=%226%22%20height=%2214%22%20rx=%223%22%20fill=%22%231b2330%22/%3E%3Crect%20x=%2240%22%20y=%224%22%20width=%226%22%20height=%2214%22%20rx=%223%22%20fill=%22%231b2330%22/%3E%3Cpath%20d=%22M20%2044h24M38%2036l8%208-8%208%22%20fill=%22none%22%20stroke=%22%23b0481f%22%20stroke-width=%225%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22/%3E%3C/svg%3E">
+<title>何日前・何日後</title>
+<style>
+  /* Layout: 1 column, narrow. Base date -> target date -> big result -> details list. */
+  :root {
+    --bg: #eef1f5;
+    --surface: #ffffff;
+    --fg: #1b2330;
+    --muted: #5b6676;
+    --line: #d3dae4;
+    --field: #f7f9fc;
+    --future: #1c63c9;
+    --past: #b0481f;
+    --today: #1b7a58;
+    --error: #b3261e;
+    --font-display: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "MS PMincho", serif;
+    --font-body: "Yu Gothic UI", "Yu Gothic", "Meiryo UI", "Meiryo", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11161e;
+      --surface: #1a212c;
+      --fg: #e6ebf3;
+      --muted: #98a3b5;
+      --line: #2e3745;
+      --field: #141a23;
+      --future: #7fb0ff;
+      --past: #f0a07c;
+      --today: #6fd3a9;
+      --error: #ff9a92;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #11161e;
+    --surface: #1a212c;
+    --fg: #e6ebf3;
+    --muted: #98a3b5;
+    --line: #2e3745;
+    --field: #141a23;
+    --future: #7fb0ff;
+    --past: #f0a07c;
+    --today: #6fd3a9;
+    --error: #ff9a92;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.7;
+    padding-block: 32px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  main { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.75rem;
+    line-height: 1.3;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .lead { margin: 0; color: var(--muted); font-size: 0.9375rem; }
+
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 16px;
+  }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  legend { padding: 0; font-size: 0.8125rem; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 8px; }
+  .fields { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: flex-end; }
+  .field { display: flex; align-items: baseline; gap: 6px; }
+  .field input {
+    font: inherit;
+    font-size: 1.375rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    color: var(--fg);
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 4px;
+    min-width: 0;
+  }
+  .field .yy { width: 6.5rem; }
+  .field .mm { width: 4.5rem; }
+  .field label { color: var(--muted); font-size: 1rem; }
+  .field input:focus-visible { outline: 2px solid var(--future); outline-offset: 1px; border-color: var(--future); }
+  .note { margin: 10px 0 0; font-size: 0.8125rem; color: var(--muted); }
+
+  .base-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 10px; }
+  .base-info { font-size: 0.875rem; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 0; }
+  .base-info strong { color: var(--fg); font-weight: 700; }
+  button.reset {
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--future);
+    background: transparent;
+    border: 1px solid var(--future);
+    border-radius: 6px;
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  button.reset:disabled { color: var(--muted); border-color: var(--line); cursor: default; }
+  button.reset:focus-visible { outline: 2px solid var(--future); outline-offset: 2px; }
+
+  .result {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 24px 20px;
+    display: flex; flex-direction: column; gap: 6px;
+    border-top: 4px solid var(--line);
+  }
+  .result[data-state="future"] { border-top-color: var(--future); }
+  .result[data-state="past"] { border-top-color: var(--past); }
+  .result[data-state="today"] { border-top-color: var(--today); }
+  .result[data-state="error"] { border-top-color: var(--error); }
+
+  .big { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; line-height: 1.1; }
+  .big-num {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(3rem, 16vw, 4.75rem);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+  .big-unit { font-family: var(--font-display); font-weight: 600; font-size: 1.5rem; }
+  .result[data-state="future"] .big { color: var(--future); }
+  .result[data-state="past"] .big { color: var(--past); }
+  .result[data-state="today"] .big { color: var(--today); }
+  .result[data-state="error"] .big-num { font-size: 1.25rem; font-family: var(--font-body); font-weight: 700; color: var(--error); }
+  .sentence { margin: 0; color: var(--fg); }
+
+  dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+  dt, dd { margin: 0; padding: 12px 16px; border-top: 1px solid var(--line); min-width: 0; }
+  dt:first-of-type, dt:first-of-type + dd { border-top: 0; }
+  dt { color: var(--muted); font-size: 0.875rem; font-weight: 700; }
+  dd { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+  @media (max-width: 420px) {
+    dl { grid-template-columns: 1fr; }
+    dt { padding-bottom: 0; }
+    dt + dd { border-top: 0; padding-top: 2px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .result { transition: border-top-color 0.2s; }
+  }
+</style>
+
+<main>
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h1>何日前・何日後</h1>
+    <p class="lead">年月日を入れると、基準日からの日数がわかります。基準日は、ページを開いた日が最初に入ります。</p>
+  </header>
+
+  <form id="form" autocomplete="off" style="display:flex;flex-direction:column;gap:12px">
+    <div class="panel">
+      <fieldset>
+        <legend>基準日</legend>
+        <div class="fields">
+          <div class="field"><input class="yy" id="by" type="text" inputmode="numeric" maxlength="4" aria-label="基準日の年"><label for="by">年</label></div>
+          <div class="field"><input class="mm" id="bm" type="text" inputmode="numeric" maxlength="2" aria-label="基準日の月"><label for="bm">月</label></div>
+          <div class="field"><input class="mm" id="bd" type="text" inputmode="numeric" maxlength="2" aria-label="基準日の日"><label for="bd">日</label></div>
+        </div>
+        <div class="base-row">
+          <button type="button" class="reset" id="reset">今日に戻す</button>
+          <span class="base-info" id="base-info" aria-live="polite"></span>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="panel">
+      <fieldset>
+        <legend>調べたい日</legend>
+        <div class="fields">
+          <div class="field"><input class="yy" id="y" type="text" inputmode="numeric" maxlength="4" value="2027" aria-label="調べたい日の年"><label for="y">年</label></div>
+          <div class="field"><input class="mm" id="m" type="text" inputmode="numeric" maxlength="2" value="1" aria-label="調べたい日の月"><label for="m">月</label></div>
+          <div class="field"><input class="mm" id="d" type="text" inputmode="numeric" maxlength="2" value="1" aria-label="調べたい日の日"><label for="d">日</label></div>
+        </div>
+        <p class="note">調べたい日の初期値は入力例です。西暦で入力してください。</p>
+      </fieldset>
+    </div>
+  </form>
+
+  <section class="result" id="result" data-state="future" aria-live="polite">
+    <div class="big"><span class="big-num" id="big-num">-</span><span class="big-unit" id="big-unit"></span></div>
+    <p class="sentence" id="sentence"></p>
+  </section>
+
+  <dl id="details">
+    <dt>曜日</dt><dd id="r-week">-</dd>
+    <dt>和暦</dt><dd id="r-era">-</dd>
+    <dt>週に換算</dt><dd id="r-weeks">-</dd>
+    <dt>年・月・日</dt><dd id="r-ymd">-</dd>
+  </dl>
+</main>
+
+<script>
+// <logic>
+function isLeap(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
+function daysInMonth(y, m) { return [31, isLeap(y) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]; }
+function toUTC(y, m, d) {
+  var t = new Date(0);
+  t.setUTCFullYear(y, m - 1, d);
+  return t.getTime();
+}
+function parseDate(ys, ms, ds) {
+  var re = /^\d+$/;
+  if (!ys.trim() || !ms.trim() || !ds.trim()) return { status: "empty" };
+  if (!re.test(ys.trim()) || !re.test(ms.trim()) || !re.test(ds.trim())) return { status: "invalid", msg: "数字だけを入力してください。" };
+  var y = +ys, m = +ms, d = +ds;
+  if (y < 1 || y > 9999) return { status: "invalid", msg: "年は1〜9999の範囲で入力してください。" };
+  if (m < 1 || m > 12) return { status: "invalid", msg: "月は1〜12の範囲で入力してください。" };
+  if (d < 1 || d > daysInMonth(y, m)) return { status: "invalid", msg: y + "年" + m + "月は" + daysInMonth(y, m) + "日までです。" };
+  return { status: "ok", y: y, m: m, d: d };
+}
+// earlier a, later b (objects {y,m,d}); calendar difference
+function ymdBetween(a, b) {
+  var y = b.y - a.y, m = b.m - a.m, d = b.d - a.d;
+  if (d < 0) {
+    var pm = b.m - 1, py = b.y;
+    if (pm < 1) { pm = 12; py -= 1; }
+    d += daysInMonth(py, pm);
+    m -= 1;
+  }
+  if (m < 0) { m += 12; y -= 1; }
+  return { y: y, m: m, d: d };
+}
+// diff > 0: target is after base
+function compute(target, base) {
+  var diff = Math.round((toUTC(target.y, target.m, target.d) - toUTC(base.y, base.m, base.d)) / 86400000);
+  var abs = Math.abs(diff);
+  var a = diff >= 0 ? base : target, b = diff >= 0 ? target : base;
+  return { diff: diff, abs: abs, weeks: Math.floor(abs / 7), restDays: abs % 7, ymd: ymdBetween(a, b) };
+}
+function sameDate(a, b) { return a.y === b.y && a.m === b.m && a.d === b.d; }
+// </logic>
+
+var WEEK = ["日", "月", "火", "水", "木", "金", "土"];
+var $ = function (id) { return document.getElementById(id); };
+
+// The base date starts as the day the page was opened, and keeps following
+// the real date until the viewer edits it.
+var baseEdited = false;
+
+function fmtYMD(o) { return o.y + "年" + o.m + "月" + o.d + "日"; }
+function eraText(o) {
+  if (o.y < 1873) return null;
+  try {
+    var t = new Date(toUTC(o.y, o.m, o.d));
+    var s = new Intl.DateTimeFormat("ja-JP-u-ca-japanese", { era: "long", year: "numeric", timeZone: "UTC" }).format(t);
+    return s.replace(/\s/g, "");
+  } catch (e) { return null; }
+}
+function weekOf(o) { return WEEK[new Date(toUTC(o.y, o.m, o.d)).getUTCDay()]; }
+function getToday() {
+  var n = new Date();
+  return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() };
+}
+function ymdText(r) {
+  var parts = [];
+  if (r.y) parts.push(r.y + "年");
+  if (r.m) parts.push(r.m + "か月");
+  if (r.d || !parts.length) parts.push(r.d + "日");
+  return parts.join(" ");
+}
+function setDetails(a, b, c, d) {
+  $("r-week").textContent = a; $("r-era").textContent = b; $("r-weeks").textContent = c; $("r-ymd").textContent = d;
+}
+function showError(msg, sentence) {
+  $("result").dataset.state = "error";
+  $("big-num").textContent = msg;
+  $("big-unit").textContent = "";
+  $("sentence").textContent = sentence || "";
+  setDetails("-", "-", "-", "-");
+}
+
+function render() {
+  var today = getToday();
+  if (!baseEdited) {
+    $("by").value = String(today.y);
+    $("bm").value = String(today.m);
+    $("bd").value = String(today.d);
+  }
+  $("reset").disabled = !baseEdited;
+
+  var b = parseDate($("by").value, $("bm").value, $("bd").value);
+  if (b.status !== "ok") {
+    $("base-info").textContent = "";
+    showError(b.status === "empty" ? "基準日を入力してください" : "基準日: " + b.msg, b.status === "empty" ? "" : "存在する日付を入力すると、結果が表示されます。");
+    return;
+  }
+  var baseIsToday = sameDate(b, today);
+  var era0 = eraText(b);
+  $("base-info").textContent = "";
+  var strong = document.createElement("strong");
+  strong.textContent = fmtYMD(b) + "(" + weekOf(b) + ")";
+  $("base-info").appendChild(strong);
+  $("base-info").appendChild(document.createTextNode((era0 ? "・" + era0 : "") + (baseIsToday ? "・今日" : "")));
+
+  var p = parseDate($("y").value, $("m").value, $("d").value);
+  var box = $("result");
+  if (p.status !== "ok") {
+    showError(p.status === "empty" ? "調べたい日を入力してください" : p.msg, p.status === "empty" ? "" : "存在する日付を入力すると、結果が表示されます。");
+    return;
+  }
+  var r = compute(p, b);
+  var label = fmtYMD(p) + "(" + weekOf(p) + ")";
+  var from = baseIsToday ? "今日" : fmtYMD(b);
+  $("big-num").textContent = r.abs.toLocaleString("ja-JP");
+  if (r.diff === 0) {
+    box.dataset.state = "today";
+    $("big-num").textContent = baseIsToday ? "今日" : "同じ日";
+    $("big-unit").textContent = "です";
+    $("sentence").textContent = label + "は、" + (baseIsToday ? "今日です。" : "基準日(" + fmtYMD(b) + ")と同じ日です。");
+  } else if (r.diff > 0) {
+    box.dataset.state = "future";
+    $("big-unit").textContent = "日後";
+    $("sentence").textContent = label + "は、" + from + "から" + r.abs.toLocaleString("ja-JP") + "日後です。";
+  } else {
+    box.dataset.state = "past";
+    $("big-unit").textContent = "日前";
+    $("sentence").textContent = label + "は、" + from + "から" + r.abs.toLocaleString("ja-JP") + "日前です。";
+  }
+  var era = eraText(p);
+  setDetails(
+    weekOf(p) + "曜日",
+    era || "明治5年以前は表示しません",
+    r.weeks + "週と" + r.restDays + "日",
+    r.diff === 0 ? "0日" : ymdText(r.ymd)
+  );
+}
+
+["by", "bm", "bd"].forEach(function (id) {
+  $(id).addEventListener("input", function () { baseEdited = true; render(); });
+});
+["y", "m", "d"].forEach(function (id) { $(id).addEventListener("input", render); });
+$("reset").addEventListener("click", function () { baseEdited = false; render(); });
+$("form").addEventListener("submit", function (e) { e.preventDefault(); render(); });
+document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
+render();
+</script>
